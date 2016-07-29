@@ -516,6 +516,7 @@ function getCookie(name) {
 }
 if (getCookie('ti') == 'yes') {
   //  location.href = 'jd/'
+  setCookie('times', 0);
 }
 
 function setCookie(name, value) {
