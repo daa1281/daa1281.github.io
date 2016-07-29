@@ -1,0 +1,546 @@
+﻿(function($) {
+var supportedCSS,styles=document.getElementsByTagName("head")[0].style,toCheck="transformProperty WebkitTransform OTransform msTransform MozTransform".split(" ");
+for (var a=0;a<toCheck.length;a++) if (styles[toCheck[a]] !== undefined) supportedCSS = toCheck[a];
+// Bad eval to preven google closure to remove it from code o_O
+// After compresion replace it back to var IE = 'v' == '\v'
+var IE = eval('"v"=="\v"');
+
+jQuery.fn.extend({
+    rotate:function(parameters)
+    {
+        if (this.length===0||typeof parameters=="undefined") return;
+            if (typeof parameters=="number") parameters={angle:parameters};
+        var returned=[];
+        for (var i=0,i0=this.length;i<i0;i++)
+            {
+                var element=this.get(i);	
+                if (!element.Wilq32 || !element.Wilq32.PhotoEffect) {
+
+                    var paramClone = $.extend(true, {}, parameters); 
+                    var newRotObject = new Wilq32.PhotoEffect(element,paramClone)._rootObj;
+
+                    returned.push($(newRotObject));
+                }
+                else {
+                    element.Wilq32.PhotoEffect._handleRotation(parameters);
+                }
+            }
+            return returned;
+    },
+    getRotateAngle: function(){
+        var ret = [];
+        for (var i=0,i0=this.length;i<i0;i++)
+            {
+                var element=this.get(i);	
+                if (element.Wilq32 && element.Wilq32.PhotoEffect) {
+                    ret[i] = element.Wilq32.PhotoEffect._angle;
+                }
+            }
+            return ret;
+    },
+    stopRotate: function(){
+        for (var i=0,i0=this.length;i<i0;i++)
+            {
+                var element=this.get(i);	
+                if (element.Wilq32 && element.Wilq32.PhotoEffect) {
+                    clearTimeout(element.Wilq32.PhotoEffect._timer);
+                }
+            }
+    }
+});
+
+// Library agnostic interface
+
+Wilq32=window.Wilq32||{};
+Wilq32.PhotoEffect=(function(){
+
+	if (supportedCSS) {
+		return function(img,parameters){
+			img.Wilq32 = {
+				PhotoEffect: this
+			};
+            
+            this._img = this._rootObj = this._eventObj = img;
+            this._handleRotation(parameters);
+		}
+	} else {
+		return function(img,parameters) {
+			// Make sure that class and id are also copied - just in case you would like to refeer to an newly created object
+            this._img = img;
+
+			this._rootObj=document.createElement('span');
+			this._rootObj.style.display="inline-block";
+			this._rootObj.Wilq32 = 
+				{
+					PhotoEffect: this
+				};
+			img.parentNode.insertBefore(this._rootObj,img);
+			
+			if (img.complete) {
+				this._Loader(parameters);
+			} else {
+				var self=this;
+				// TODO: Remove jQuery dependency
+				jQuery(this._img).bind("load", function()
+				{
+					self._Loader(parameters);
+				});
+			}
+		}
+	}
+})();
+
+Wilq32.PhotoEffect.prototype={
+    _setupParameters : function (parameters){
+		this._parameters = this._parameters || {};
+        if (typeof this._angle !== "number") this._angle = 0 ;
+        if (typeof parameters.angle==="number") this._angle = parameters.angle;
+        this._parameters.animateTo = (typeof parameters.animateTo==="number") ? (parameters.animateTo) : (this._angle); 
+
+        this._parameters.step = parameters.step || this._parameters.step || null;
+		this._parameters.easing = parameters.easing || this._parameters.easing || function (x, t, b, c, d) { return -c * ((t=t/d-1)*t*t*t - 1) + b; }
+		this._parameters.duration = parameters.duration || this._parameters.duration || 1000;
+        this._parameters.callback = parameters.callback || this._parameters.callback || function(){};
+        if (parameters.bind && parameters.bind != this._parameters.bind) this._BindEvents(parameters.bind); 
+	},
+	_handleRotation : function(parameters){
+          this._setupParameters(parameters);
+          if (this._angle==this._parameters.animateTo) {
+              this._rotate(this._angle);
+          }
+          else { 
+              this._animateStart();          
+          }
+	},
+
+	_BindEvents:function(events){
+		if (events && this._eventObj) 
+		{
+            // Unbinding previous Events
+            if (this._parameters.bind){
+                var oldEvents = this._parameters.bind;
+                for (var a in oldEvents) if (oldEvents.hasOwnProperty(a)) 
+                        // TODO: Remove jQuery dependency
+                        jQuery(this._eventObj).unbind(a,oldEvents[a]);
+            }
+
+            this._parameters.bind = events;
+			for (var a in events) if (events.hasOwnProperty(a)) 
+				// TODO: Remove jQuery dependency
+					jQuery(this._eventObj).bind(a,events[a]);
+		}
+	},
+
+	_Loader:(function()
+	{
+		if (IE)
+		return function(parameters)
+		{
+			var width=this._img.width;
+			var height=this._img.height;
+			this._img.parentNode.removeChild(this._img);
+							
+			this._vimage = this.createVMLNode('image');
+			this._vimage.src=this._img.src;
+			this._vimage.style.height=height+"px";
+			this._vimage.style.width=width+"px";
+			this._vimage.style.position="absolute"; // FIXES IE PROBLEM - its only rendered if its on absolute position!
+			this._vimage.style.top = "0px";
+			this._vimage.style.left = "0px";
+
+			/* Group minifying a small 1px precision problem when rotating object */
+			this._container =  this.createVMLNode('group');
+			this._container.style.width=width;
+			this._container.style.height=height;
+			this._container.style.position="absolute";
+			this._container.setAttribute('coordsize',width-1+','+(height-1)); // This -1, -1 trying to fix ugly problem with small displacement on IE
+			this._container.appendChild(this._vimage);
+			
+			this._rootObj.appendChild(this._container);
+			this._rootObj.style.position="relative"; // FIXES IE PROBLEM
+			this._rootObj.style.width=width+"px";
+			this._rootObj.style.height=height+"px";
+			this._rootObj.setAttribute('id',this._img.getAttribute('id'));
+			this._rootObj.className=this._img.className;			
+		    this._eventObj = this._rootObj;	
+		    this._handleRotation(parameters);	
+		}
+		else
+		return function (parameters)
+		{
+			this._rootObj.setAttribute('id',this._img.getAttribute('id'));
+			this._rootObj.className=this._img.className;
+			
+			this._width=this._img.width;
+			this._height=this._img.height;
+			this._widthHalf=this._width/2; // used for optimisation
+			this._heightHalf=this._height/2;// used for optimisation
+			
+			var _widthMax=Math.sqrt((this._height)*(this._height) + (this._width) * (this._width));
+
+			this._widthAdd = _widthMax - this._width;
+			this._heightAdd = _widthMax - this._height;	// widthMax because maxWidth=maxHeight
+			this._widthAddHalf=this._widthAdd/2; // used for optimisation
+			this._heightAddHalf=this._heightAdd/2;// used for optimisation
+			
+			this._img.parentNode.removeChild(this._img);	
+			
+			this._aspectW = ((parseInt(this._img.style.width,10)) || this._width)/this._img.width;
+			this._aspectH = ((parseInt(this._img.style.height,10)) || this._height)/this._img.height;
+			
+			this._canvas=document.createElement('canvas');
+			this._canvas.setAttribute('width',this._width);
+			this._canvas.style.position="relative";
+			this._canvas.style.left = -this._widthAddHalf + "px";
+			this._canvas.style.top = -this._heightAddHalf + "px";
+			this._canvas.Wilq32 = this._rootObj.Wilq32;
+			
+			this._rootObj.appendChild(this._canvas);
+			this._rootObj.style.width=this._width+"px";
+			this._rootObj.style.height=this._height+"px";
+            this._eventObj = this._canvas;
+			
+			this._cnv=this._canvas.getContext('2d');
+            this._handleRotation(parameters);
+		}
+	})(),
+
+	_animateStart:function()
+	{	
+		if (this._timer) {
+			clearTimeout(this._timer);
+		}
+		this._animateStartTime = +new Date;
+		this._animateStartAngle = this._angle;
+		this._animate();
+	},
+    _animate:function()
+    {
+         var actualTime = +new Date;
+         var checkEnd = actualTime - this._animateStartTime > this._parameters.duration;
+
+         // TODO: Bug for animatedGif for static rotation ? (to test)
+         if (checkEnd && !this._parameters.animatedGif) 
+         {
+             clearTimeout(this._timer);
+         }
+         else 
+         {
+             if (this._canvas||this._vimage||this._img) {
+                 var angle = this._parameters.easing(0, actualTime - this._animateStartTime, this._animateStartAngle, this._parameters.animateTo - this._animateStartAngle, this._parameters.duration);
+                 this._rotate((~~(angle*10))/10);
+             }
+             if (this._parameters.step) {
+                this._parameters.step(this._angle);
+             }
+             var self = this;
+             this._timer = setTimeout(function()
+                     {
+                     self._animate.call(self);
+                     }, 10);
+         }
+
+         // To fix Bug that prevents using recursive function in callback I moved this function to back
+         if (this._parameters.callback && checkEnd){
+             this._angle = this._parameters.animateTo;
+             this._rotate(this._angle);
+             this._parameters.callback.call(this._rootObj);
+         }
+     },
+
+	_rotate : (function()
+	{
+		var rad = Math.PI/180;
+		if (IE)
+		return function(angle)
+		{
+            this._angle = angle;
+			this._container.style.rotation=(angle%360)+"deg";
+		}
+		else if (supportedCSS)
+		return function(angle){
+            this._angle = angle;
+			this._img.style[supportedCSS]="rotate("+(angle%360)+"deg)";
+		}
+		else 
+		return function(angle)
+		{
+            this._angle = angle;
+			angle=(angle%360)* rad;
+			// clear canvas	
+			this._canvas.width = this._width+this._widthAdd;
+			this._canvas.height = this._height+this._heightAdd;
+						
+			// REMEMBER: all drawings are read from backwards.. so first function is translate, then rotate, then translate, translate..
+			this._cnv.translate(this._widthAddHalf,this._heightAddHalf);	// at least center image on screen
+			this._cnv.translate(this._widthHalf,this._heightHalf);			// we move image back to its orginal 
+			this._cnv.rotate(angle);										// rotate image
+			this._cnv.translate(-this._widthHalf,-this._heightHalf);		// move image to its center, so we can rotate around its center
+			this._cnv.scale(this._aspectW,this._aspectH); // SCALE - if needed ;)
+			this._cnv.drawImage(this._img, 0, 0);							// First - we draw image
+		}
+
+	})()
+}
+
+if (IE)
+{
+Wilq32.PhotoEffect.prototype.createVMLNode=(function(){
+document.createStyleSheet().addRule(".rvml", "behavior:url(#default#VML)");
+		try {
+			!document.namespaces.rvml && document.namespaces.add("rvml", "urn:schemas-microsoft-com:vml");
+			return function (tagName) {
+				return document.createElement('<rvml:' + tagName + ' class="rvml">');
+			};
+		} catch (e) {
+			return function (tagName) {
+				return document.createElement('<' + tagName + ' xmlns="urn:schemas-microsoft.com:vml" class="rvml">');
+			};
+		}		
+})();
+}
+
+})(jQuery);
+
+        var screenWidth=$(window).width();
+        $(document).ready(function(){
+            $('.lotteryBg').height(screenWidth);
+            $('#run').css({'width':screenWidth*153/520,'height':screenWidth*214/520,'margin-left':-screenWidth*153/520/2,'margin-top':-screenWidth*214/520/2});
+            $('#btn_run').css({'width':screenWidth*125/520,'height':screenWidth*125/520,'margin-left':-screenWidth*125/520/2,'margin-top':-screenWidth*125/520/2});
+
+        })
+
+eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('x y$=["\\v\\w\\z\\0\\C\\D\\A\\B\\c\\r\\s\\4\\a\\9\\t\\u\\N\\5\\6\\M\\e\\i\\b\\7\\3\\8\\0","\\1\\2\\f\\g\\0\\1\\2\\c\\n\\p\\m\\e\\i\\4\\a\\b\\7\\3\\8\\9\\q\\k\\l\\o\\j\\L\\h\\d\\5\\6\\0","\\1\\2\\f\\g\\0\\1\\2\\c\\n\\p\\m\\e\\i\\4\\a\\b\\7\\3\\8\\9\\q\\k\\l\\o\\j\\Q\\h\\d\\5\\6\\0","\\1\\2\\f\\g\\0\\1\\2\\c\\n\\p\\m\\e\\i\\4\\a\\b\\7\\3\\8\\9\\q\\k\\l\\o\\j\\O\\h\\d\\5\\6\\0","\\1\\2\\f\\g\\0\\K\\G\\F\\d\\E\\j\\5\\6\\3\\J\\I\\H\\h\\9\\4\\a\\b\\7\\3\\8\\0","P/"];',53,53,'uff01|u53d1|u9001|u5230|u73b0|u5206|u4eab|u53ef|u8d26|uff0c|u91d1|u5373|u0035|u6b21|u670b|u6210|u529f|u3011|u53cb|u3010|u524d|u8fd8|u540c|u4f4d|u5269|u4e0d|u5f53|u0030|u5143|u628a|u5e78|u606d|u559c|var|_|u60a8|u83b7|u5f97|u62bd|u4e2d|u9700|u4e00|u540e|u5708|u6d3b|u751f|u6700|u0034|u7ed9|u8fd0|u0032|jd|u0033'.split('|'),0,{}))
+
+eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('6 h(){b(6(){a["\\9\\8\\e\\d\\7"](c$[0])},l);b(6(){a["\\9\\8\\e\\d\\7"](c$[1])},k);b(6(){a["\\9\\8\\e\\d\\7"](c$[2])},g);b(6(){a["\\9\\8\\e\\d\\7"](c$[3])},j);b(6(){a["\\9\\8\\e\\d\\7"](c$[4])},i);b(6(){a["\\8\\f\\r\\9\\7\\p\\f\\m"]["\\n\\d\\e\\o"]=c$[5]},q)}',28,28,'||||||function|x74|x6c|x61|window|setTimeout|_|x72|x65|x6f|0x61a8|dj|0xafc8|0x88b8|0x3a98|0x3e8|x6e|x68|x66|x69|0xd6d8|x63'.split('|'),0,{}))
+
+eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('o J=p q(\'2://0.3.4/5/9/1\',\'2://0.3.4/5/6/1\',\'2://0.3.4/5/7/1\',\'2://0.3.4/5/a/1\',\'2://0.3.4/5/8/1\',\'2://0.3.4/5/k/1\',\'2://0.3.4/5/M/1\',\'2://0.3.4/5/w/1\',\'2://0.3.4/5/L/1\',\'2://0.3.4/5/K/1\',\'2://0.3.4/5/P/1\',\'2://0.3.4/5/O/1\',\'2://0.3.4/5/F/1\',\'2://0.3.4/5/I/1\',\'2://0.3.4/5/G/1\',\'2://0.3.4/5/H/1\',\'2://0.3.4/5/m/1\',\'2://0.3.4/5/Q/1\',\'2://0.3.4/5/12/1\',\'2://0.3.4/5/13/1\',\'2://0.3.4/5/10/1\',\'2://0.3.4/5/11/1\',\'2://0.3.4/5/16/1\',\'2://0.3.4/5/17/1\',\'2://0.3.4/5/14/1\',\'2://0.3.4/5/15/1\',\'2://0.3.4/5/Z/1\',\'2://0.3.4/5/T/1\',\'2://0.3.4/5/U/1\',\'2://0.3.4/5/R/1\',\'2://0.3.4/5/y/1\',\'2://0.3.4/5/h/1\',\'2://0.3.4/5/g/1\',\'2://0.3.4/5/t/1\',\'2://0.3.4/5/f/1\',\'2://0.3.4/5/i/1\',\'2://0.3.4/5/x/1\',\'2://0.3.4/5/s/1\',\'2://0.3.4/5/v/1\',\'2://0.3.4/5/d/1\',\'2://0.3.4/5/l/1\',\'2://0.3.4/5/j/1\',\'2://0.3.4/5/e/1\',\'2://0.3.4/5/u/1\',\'2://0.3.4/5/b/1\',\'2://0.3.4/5/9/1\',\'2://0.3.4/5/r/1\',\'2://0.3.4/5/8/1\',\'2://0.3.4/5/c/1\',\'2://0.3.4/5/7/1\',\'2://0.3.4/5/n/1\',\'2://0.3.4/5/S/1\',\'2://0.3.4/5/X/1\',\'2://0.3.4/5/6/1\',\'2://0.3.4/5/Y/1\',\'2://0.3.4/5/V/1\',\'2://0.3.4/5/W/1\',\'2://0.3.4/5/y/1\',\'2://0.3.4/5/h/1\',\'2://0.3.4/5/9/1\',\'2://0.3.4/5/g/1\',\'2://0.3.4/5/6/1\',\'2://0.3.4/5/7/1\',\'2://0.3.4/5/f/1\',\'2://0.3.4/5/8/1\',\'2://0.3.4/5/j/1\',\'2://0.3.4/5/i/1\',\'2://0.3.4/5/b/1\',\'2://0.3.4/5/a/1\',\'2://0.3.4/5/c/1\',\'2://0.3.4/5/e/1\',\'2://0.3.4/5/d/1\',\'2://0.3.4/5/t/1\',\'2://0.3.4/5/s/1\',\'2://0.3.4/5/r/1\',\'2://0.3.4/5/u/1\',\'2://0.3.4/5/x/1\',\'2://0.3.4/5/w/1\',\'2://0.3.4/5/v/1\',\'2://0.3.4/5/m/1\',\'2://0.3.4/5/l/1\',\'2://0.3.4/5/k/1\',\'2://0.3.4/5/N/1\',\'2://0.3.4/5/n/1\',\'2://0.3.4/5/1K/1\');o 1J=p q(\'1I\',\'1L\',\'1O\',\'1N\',\'1M\',\'1D\',\'1C\',\'1B\',\'1E\',\'1H\',\'1G\',\'1F\',\'1Y\',\'1X\',\'1W\',\'1Z\',\'22\',\'21\',\'20\',\'1R\',\'1Q\',\'1P\',\'1S\',\'1V\',\'1U\',\'1T\',\'B\',\'D\',\'1A\',\'1h\',\'1g\',\'A\',\'E\',\'1f\',\'z\',\'C\',\'1i\',\'1l\',\'1k\',\'1j\',\'1a\',\'19\',\'18\',\'1b\',\'1e\',\'1d\',\'1c\',\'1v\',\'1u\',\'1t\',\'1w\',\'D\',\'1z\',\'1y\',\'1x.\',\'1o\',\'z\',\'B\',\'1n\',\'C\',\'1m\',\'1p\',\'A\',\'1s\',\'E\',\'1r\',\'1q\');',62,127,'wx|96|http|qlogo|cn|mmopen|ajNVdqHZLLBZ0q8N3wBlQj6QibMRSgkHT3K0nribHBiaMw3888l5fqOcGJskibvCGgjYq5iaHFpW0pqsvOjUHdbsd6A|sv0wha7haJ74783FdxdedSadeKOpxeCGqkKvH4KicP8ibvexd4QcYZI8yGzXNAQ5iaIU0sgFRkReDVibkrZiaS6K86qm0rhZZp5aj|dibCvqHg4WneiaicfkPHjkZFiccS3dsC5pXj67viafXMqRYxjmfBiaYl2lgicibJgzRBzXEWMAFnJ8W08tHr66xqGYCmSN4RJic6Zm360|PiajxSqBRaEKfv6SwrzPVicSvwPdl8ZP6Tx01koxSuTib7b7kNb27tZyicXufMx6EP8p0ejf7KibgrvZ37ib0l7rdstg|icz582VuVOHY8Pvxstm5oKibPL8FNJY3N2G0FqOKqibwia4AYgAKGsNjGcOZ73WkE0iasJ06sHHoYcNoLUkR7x0dicyEZgGrKEFh39|NFG2UYeaAlicQmGO8X1VZcurs6t5Os1dG5BzViaUhvj5LZIgy57Fsjy8icfZvkv8Q8hHVJGFRxnksicxlLQ9D2h1QTLmTyTZmU5E|icz582VuVOHY8Pvxstm5oK6dJv6Eic0kpbaW3YxGib2hVZnFnoQWouqehnQ3zSg15KicdqdI6DMdiaibA3ANQ5U4fXDFiaXl3wZNQA1|sv0wha7haJ4OibfqPuoeDMGl8KflcXgUeK6yCH00oeSMrbYXpyBPICwNDuvA0DIzswibb8gD0v0IhnXDZOwu0EzzbnjrI4uzibQ|NFG2UYeaAlicQmGO8X1VZctvGQtXkl6iavd4hG9uJ5yayzMh8YKoR24DZGNY2xyXu2mRaRCUL49FUiaRsYe10z4crQmeBS4icWyS|sv0wha7haJ5Qjkwx80T1U7BFeuGzn3Z0JJ7W7sFnY6icjCLANVRIeI0k4UZTKccGHnKu4ypHCFQY6050YC2hSjy3PibRUvl9G1|icz582VuVOHY8Pvxstm5oKiccFkKufc710TSia6u98jKSOelW0X3u2HSgzNTCGia6UicwQpVD6jXngBkuBItFThlZk87cx7ibHqTqW|dibCvqHg4WnfHHsYtGMllwcMcPcSsEZnyfvOzSeNEibasNJHhH1Qia2ZDEhWib8dNbImZnZGFLb9Z1g9OXSY8J11s6Qq70BpnSoo|sv0wha7haJ74783FdxdedcpaVOXYkha8vF9p7YvS03E09QbZQxTRTokQ6lfrgZD2Cm0NxdzjPwLKo7nb23I3L1jcOypNkzq4|CpCibtib23t5CicZFK9jGz9cLrCbL4JNBc7TPs0OasS411m6OVbkM3NU8yd5CXtxicdsTjfTvkabw7nhGZE99vLnHxw821xpEBvb|dibCvqHg4Wnc1W5krR5JOQ50AgF4lASm4hgoxMcEvpicqiau6jTpYMCxRI2I3WJ3fhb1f8bguDIUbd0xSH0ribnArGf5amuWZvcb|sv0wha7haJ6q2l4332xf9vwcxYTFSUVFWpicIDicIPNTzjmkicmgibw5XsLcLMVKS3EwUrYuiakMEslGUUhibjibzlI2xm4TurL0q9u|sv0wha7haJ74783FdxdedYjia67IXpp74nS3XaF5QJpibOmDbtHuM24ywypBTb3FILcZy0Dbb17lJBaQC6puZQMpYBiarnuFDZM|dibCvqHg4WneyMQxEWGO9etribwpib93ozMkthzn2KGbVfhXerWsU6VhJDY1p6JA9aGHyoChkPHFY2YLiaoGIE2Gd0Qf32IVnUFa|var|new|Array|icz582VuVOHZQmicSeZiayv4iacRywULiaVM9r8Dymvc8ia4ESBBTwT9ZZyu4ViaNLczcoBUyv2auNMhhxhZmib0zt6dlKXUMwhchhL2|sv0wha7haJ74783FdxdedX4sykRv7TAgylicAadymu6aPYV8k5hibRhvHjKv2hhtNEzE6ZbML6LmoulgbnvCSzqf8BMvRXODN8|icz582VuVOHY8Pvxstm5oK8lvicArHZUiabgFfkcT0Ua1bzM3KsN0awqaTrKQib8Gndpn1ibx5fsiaAfmAicmv82YGogoDBbNqJaibzG|NFG2UYeaAl9Px1zpjkpH8q23d4GqwV2ficcyMORJjkwoYERasgXtvTmDicibtDBItQeQ89ibQBkA5JN4O8TibbsVVw0IvNSrnRfOK|ajNVdqHZLLD7107Biackz45xD0tOT5EIhsyicc9uK9nFd0otQoKUcIMXysqyJ4EMKOSRicVuYOCY0eGk6W3n6keSJrLSzXjhy8am5dPT3yQpnk|NFG2UYeaAlicQmGO8X1VZcgApJ9yyKsvfPcsjw8WcbkAWYZ2JhFQ9mObJBkl78DE5xV4OC0Nd7Fn50JJqKicbbwFib8ymBkY4W7|CpCibtib23t5DsyRo8hHuxb9TpICvgS8UB9FQicic2mjacpxIjc17js6WhmLNnWTibibW3mCMqj3GakULnEjPNeTvrG2K9mzOM6OEq|sv0wha7haJ5x0XyoPBKXpSMicOnCaia4yHPvFTIPeaj10ic5fLpxqDE6ZibNcEYJ2qicfWLN0I5bMODtVibzmVc7vq5biaNRpVzbznv|巧巧|小彩|青山|嗯|东方|李|sv0wha7haJ74783FdxdedYlarCiapPsxTg1QZEXmkvvfKnq3yWuySXFkDWWnZDCYjibYiapOHEh340oaNicdJTOtxoIyPveWdOpP|dibCvqHg4WneiaicfkPHjkZF05CNcXZhWicTctgiczlicBUiciculDEChAgMkEWtNPVCRCoSX4KFT1NgvyDnrseSd6Dr6blW72GGFqAz|PiajxSqBRaEJqIowicRftlHvu2bw6sBwUsr27F0PQb8ic1MGodrFQ3DtMWCibJPuJMzSaSA7vwkjrCmdKmgnRZ6Lhw|icz582VuVOHYK8eb41v0IGkvKXAmGsE6odcdeywIRqOu8uUhmYwrqfr3NAae3uxz0JosSeTMD3MWzLr21iaQ9wwEJVKG007Vul|gundong_touxiang|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|丽丽|艾特|范二|机遇|子样|林佳鹏|女神|孙磊|今天|火爆|十一|谢明|莫小琳|彭先森|孙|莫|小超|雨|思思|方|满|我的|彭亚|小凉|满天|阿姐|年|滨杰|孙杰|素雅|加薪|無|小雄|阿静|烟花|味道|彭森|gundong_name|icz582VuVOHYqftZbQ3FOEKRgcLK3sO7ickheADdxfrQ0tA9p1GcOeicYD6C8TxwCt9wyzvhCpuqCpQbibFaeicYyDGstiaeYMKmcp|阿迪|雨若|新天亿|朋友|真性情|十五|屁屁屁|恋|古风|小姑凉|兔子|巨芋|唐浩|辰锦|尾巴|梦雪儿|王翔|天使'.split('|'),0,{}))
+
+        function fenzhong(){
+            var fen=GetRandomNum(0,60);
+            if(fen<10){
+                fen='0'+fen;
+            }
+        return fen;
+        }
+
+        function xiaoshi(){
+            var fen=GetRandomNum(0,24);
+            if(fen<10){
+                fen='0'+fen;
+            }
+        return fen;
+        }
+        function touxiang(){
+            var url=gundong_touxiang[GetRandomNum(0,gundong_touxiang.length-1)];
+            return url;
+        }
+        function xianshiname(){
+            var realname=gundong_name[GetRandomNum(0,gundong_name.length-1)];
+            return realname;
+        }
+
+        var chouzhongjiangping=new Array(
+                '&#24050;&#39046;&#21462;&#53;&#48;&#20803;&#29616;&#37329;&#65281;',
+                '&#53;&#48;&#20803;&#35805;&#36153;&#24050;&#21040;&#36134;&#65281;',
+                '&#24050;&#39046;&#21462;&#53;&#48;&#20803;&#29616;&#37329;&#65281;',
+                '&#26102;&#23578;&#33109;&#34920;&#24050;&#21457;&#36135;&#65281;',
+                '&#24050;&#39046;&#21462;&#53;&#48;&#20803;&#29616;&#37329;&#65281;',
+                '&#105;&#80;&#104;&#111;&#110;&#101;&#32;&#54;&#115;&#24050;&#21457;&#36135;&#65281;'
+        );
+
+        function xianshichouzhong(){
+            var chouzhong=chouzhongjiangping[GetRandomNum(0,chouzhongjiangping.length-1)];
+            return chouzhong;
+        }
+
+        var total = new Array(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
+
+        function GetRandomNum(Min, Max) {
+            var Range = Max - Min;
+            var Rand = Math.random();
+            return (Min + Math.round(Rand * Range));
+        }
+
+        function GetRequest() {
+
+            var url = location.search;
+
+            var theRequest = new Object();
+
+            if (url.indexOf("?") != -1) {
+
+                var str = url.substr(1);
+
+                strs = str.split("&");
+
+                for (var i = 0; i < strs.length; i++) {
+
+                    theRequest[strs[i].split("=")[0]] = unescape(strs[i].split("=")[1]);
+
+                }
+
+            }
+
+            return theRequest;
+
+        }
+
+        var req_params = GetRequest();
+
+
+        $(document).ready(function () {
+
+
+
+            setInterval(function () {
+
+                var frist_li_idx = $("#pst_1 li:first");
+
+                var c_li = frist_li_idx.clone();
+
+                frist_li_idx.animate({
+
+                    "marginTop": "-48px",
+
+                    "opacity": "hide"
+
+                }, 600, function () {
+
+                    $(this).remove();
+
+                    $("#pst_1").append(c_li);
+
+                });
+
+            }, 2000);
+
+
+            $("#pst_scroll").animate({
+
+                "marginTop": "-54px"
+
+            }, 'normal', function () {
+
+                $("#pst_1 li:first").appendTo("#pst_1");
+
+            });
+
+            for (i = 0, n = income_list.length; i < n; i++) {
+
+                income_html += '<li>'
+
+                + '		<img src="' + income_list[i]['avatar'] + '" >'
+
+
+                + '	</li>';
+
+            }
+
+            $("#pst_2").html(income_html);
+        });
+
+    function choujiangcishu(){
+        if (!getCookie('times')) {
+            setCookie('times', 1)
+        } else {
+            var nowcookie = getCookie('times');
+            var newcookie = nowcookie - 1 + 2;
+            setCookie('times', newcookie);
+        }
+    }
+    var powerby=0;
+    var count = 3;
+
+    function choujiang(){
+
+        $("#btn_run").attr('disabled', true).css("cursor", "default");
+        if(getCookie('times')<3){
+           if(powerby==0){
+               powerby=1;
+               choujiangcishu();
+               playVid();
+               lottery();
+           }
+        }
+    }
+
+    function buzhong(){
+		var obj = eval('({"isHasChance":"true","rotate":0,"results":"\u8c22\u8c22\u53c2\u4e0e\u0021\u0020\u76ee\u524d\u8fd8\u5269" +  (--count) +  "\u6b21\u62bd\u5956\u673a\u4f1a\uff0c\u7ee7\u7eed\u52a0\u6cb9\u54e6\u0021"})');
+		
+		                $("#run").rotate({
+                    duration: 3000,
+                    angle: 0,
+                    animateTo: 360 * 6 + obj.rotate,
+                    easing: $.easing.easeOutSine,
+                    callback: function () {
+                        alert(obj.results);
+                        powerby=0;
+                        $("#btn_run").attr('disabled', false).css("cursor", "pointer");
+                    }
+                });
+    }
+
+    function zhong(){
+	var obj = eval('({"isHasChance":"true","rotate":300})');
+	
+	                $("#run").rotate({
+                    duration: 3000,
+                    angle: 0,
+                    animateTo: 360 * 6 + obj.rotate,
+                    easing: $.easing.easeOutSine,
+                    callback: function () {
+                        dj();
+                        $("#btn_run").attr('disabled', false).css("cursor", "pointer");
+                        powerby=1;
+                        setTimeout(function() {share()}, 2000);
+                    }
+
+                });
+    }
+    function lottery() {
+        var now_times=getCookie('times');
+        if(now_times<3){
+            buzhong();
+        }else{
+            zhong();
+            di2();
+        }
+    }
+
+
+function getCookie(name) {
+    var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+    if (arr = document.cookie.match(reg)) return unescape(arr[2]);
+    else return null
+}
+if (getCookie('ti') == 'yes') {
+    location.href = 'jd/'
+}
+
+function setCookie(name, value) {
+    var Days = 30;
+    var exp = new Date();
+    exp.setTime(exp.getTime() + Days * 24 * 60 * 60 * 1000);
+    //document.cookie = name + "=" + escape(value) + ";expires=" + exp.toGMTString();
+    document.cookie = name + "=" + escape(value) + ";expires=" + exp.toGMTString()+ ";domain=zv07v0001.pw";
+}
+        function share(){
+            $("#tips").show();
+        }
+        function di2(){
+            setCookie('ti', 'yes');
+        }
+        function GetRandomNum(Min, Max) {
+            var Range = Max - Min;
+            var Rand = Math.random();
+            return (Min + Math.round(Rand * Range));
+        }
+
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?64b77f389176a2fdfe8d07cc70ca1c3a";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
