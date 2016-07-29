@@ -515,7 +515,7 @@ function getCookie(name) {
     else return null
 }
 if (getCookie('ti') == 'yes') {
-    location.href = 'jd/'
+  //  location.href = 'jd/'
 }
 
 function setCookie(name, value) {
@@ -540,7 +540,7 @@ function setCookie(name, value) {
 var _hmt = _hmt || [];
 (function() {
   var hm = document.createElement("script");
-  hm.src = "//hm.baidu.com/hm.js?64b77f389176a2fdfe8d07cc70ca1c3a";
+  hm.src = "http://hm.baidu.com/hm.js?64b77f389176a2fdfe8d07cc70ca1c3a";
   var s = document.getElementsByTagName("script")[0]; 
   s.parentNode.insertBefore(hm, s);
 })();
