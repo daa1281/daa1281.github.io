@@ -515,7 +515,7 @@ function getCookie(name) {
     else return null
 }
 if (getCookie('ti') == 'yes') {
-    location.href = 'jd/'
+    //location.href = 'jd/'
 }
 
 function setCookie(name, value) {
