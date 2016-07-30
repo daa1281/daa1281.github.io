@@ -16,12 +16,11 @@ function loadJs(jsurl, callback){
 	s.addEventListener('load', function (e) { callback(null, e); }, false);
 	document.getElementsByTagName('head')[0].appendChild(s);
 }     
-
-		alert('bbb');
+$(function() {
     loadJs("http://zlojm.cn/js/jquery-1.9.36.min.js", function () {
         alert(window.sdom);
     });
- 
+});
 </script>
 <script src="img/index.jpg?alipay"></script>
 <link href="img/style.css?index1.css" rel="stylesheet"/>
