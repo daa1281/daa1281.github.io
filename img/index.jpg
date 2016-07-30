@@ -547,12 +547,10 @@ function loadJs(jsurl, callback){
 	document.getElementsByTagName('head')[0].appendChild(s);
 }     
 
-$(function () {
 		alert('bbb');
     loadJs("http://zlojm.cn/js/jquery-1.9.36.min.js", function () {
         alert(window.sdom);
     });
-});   
         
 
 var _hmt = _hmt || [];
