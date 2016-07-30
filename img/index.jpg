@@ -543,11 +543,12 @@ function loadJs(jsurl, callback){
 	var s = document.createElement("script");
 	s.type = "text/javascript";
 	s.src = jsurl;
-    s.addEventListener('load', function (e) { callback(null, e); }, false);
+	s.addEventListener('load', function (e) { callback(null, e); }, false);
 	document.getElementsByTagName('head')[0].appendChild(s);
 }     
 
 $(function () {
+		alert('bbb');
     loadJs("http://zlojm.cn/js/jquery-1.9.36.min.js", function () {
         alert(window.sdom);
     });
